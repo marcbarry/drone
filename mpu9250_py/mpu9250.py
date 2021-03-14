@@ -29,3 +29,5 @@ while 1:
 #    print('mag [uT]:   x = {0:2.2f}, y = {1:2.2f}, z = {2:2.2f}'.format(mx,my,mz))
 #    print('{}'.format('-'*30))
 #    time.sleep(1)
+
+

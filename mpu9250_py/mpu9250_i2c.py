@@ -144,3 +144,5 @@ mag_sens = 4900.0 # magnetometer sensitivity: 4800 uT
 bus = smbus.SMBus(1) # start comm with i2c bus
 gyro_sens,accel_sens = MPU6050_start() # instantiate gyro/accel
 AK8963_start() # instantiate magnetometer
+
+
