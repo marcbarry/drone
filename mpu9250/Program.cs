@@ -8,6 +8,16 @@ namespace mpu9250
 {
     /// <summary>
     /// https://github.com/dotnet/iot/blob/main/Documentation/raspi-i2c.md
+    /// 
+    /// https://github.com/marcbarry/drone/blob/main/mpu9250_py/mpu9250.py#L10
+    /// https://github.com/marcbarry/drone/blob/main/mpu9250_py/mpu9250_i2c.py#L38
+    /// https://github.com/kplindegaard/smbus2/blob/70be77db7542625cfe7ea238283482c69fb34646/smbus2/smbus2.py#L433
+    /// https://github.com/kplindegaard/smbus2/blob/70be77db7542625cfe7ea238283482c69fb34646/smbus2/smbus2.py#L340
+    ///
+    /// https://github.com/dotnet/iot/blob/main/src/System.Device.Gpio/System/Device/I2c/UnixI2cBus.cs#L88
+    /// https://github.com/dotnet/iot/blob/main/src/System.Device.Gpio/System/Device/I2c/Devices/UnixI2cDevice.cs#L6
+    /// 
+    /// https://stackoverflow.com/questions/17317317/using-python-smbus-on-a-raspberry-pi-confused-with-syntax
     /// </summary>
     public static class Program
     {
