@@ -53,6 +53,59 @@ namespace mpu9250
         {
             Console.WriteLine("hello");
 
+            var mpu = new mpu9250();
+
+            
+            var consoleLock = new object();
+
+            Console.WriteLine(mpu.isReady() ? "Device Ready": "Failure");
+
+            //mpu.getGyros(data =>
+            //{
+            //    lock (consoleLock)
+            //    {
+            //        Console.Write("Gyros:\t");
+            //        foreach (var item in data)
+            //        {
+            //            Console.Write($"{item} ");
+            //        }
+            //        Console.WriteLine();
+            //    }
+            //}, 100);
+
+            //mpu.getAccel(data =>
+            //{
+            //    lock (consoleLock)
+            //    {
+            //        Console.Write("Accel:\t");
+            //        foreach (var item in data)
+            //        {
+            //            Console.Write($"{item} ");
+            //        }
+            //        Console.WriteLine();
+            //    }
+            //}, 100);
+
+            //mpu.getTemperature(data => { Console.WriteLine(data); }, 100);
+
+
+            mpu.getMotion6(data =>
+            {
+                lock (consoleLock)
+                {
+                    Console.Write("Motion6:\t");
+                    foreach (var item in data)
+                    {
+                        Console.Write($"{item} ");
+                    }
+                    Console.WriteLine();
+                }
+            }, 100);
+
+            Console.ReadLine();
+
+            return;
+
             using (var i2c = I2cDevice.Create(new I2cConnectionSettings(BusId, MPU6050_ADDR)))
             {
                 byte samp_rate_div = 0;
@@ -129,7 +182,7 @@ namespace mpu9250
                     var acc_y = i2c.ReadByte(); //read_raw_bits(ACCEL_YOUT_H)
                     var acc_z = i2c.ReadByte(); //read_raw_bits(ACCEL_ZOUT_H)
 
-                    Console.WriteLine($"ACCEL_XOUT_H: {}:X2");
+                    Console.WriteLine($"ACCEL_XOUT_H: {i2c.ReadByte()}:X2");
                     Console.WriteLine($"ACCEL_YOUT_H: {i2c.ReadByte()}:X2");
                     Console.WriteLine($"ACCEL_ZOUT_H: {i2c.ReadByte()}:X2");
 
