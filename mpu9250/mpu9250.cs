@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using System.Device.I2c;
 using System.Diagnostics;
 using System.Collections;
+using System.IO;
 using System.Net.Sockets;
 using System.Numerics;
 using System.Text;
@@ -832,10 +833,9 @@ namespace mpu9250
                             callback(accel, gyro, mag, getTemperature());
                         }
                     }
-                    catch (Exception err)
+                    catch (IOException)
                     {
-                        Task.Delay(10).Wait();
-                        //Console.WriteLine(err.Message);
+                        Task.Delay(TimeSpan.FromMilliseconds(25)).Wait();
                     }
 
                     Task.Delay(millisecondsDelay).Wait();

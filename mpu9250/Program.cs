@@ -98,7 +98,7 @@ namespace mpu9250
                                       $"temp [c]: {temperature:f2}");
 
                     counter++;
-                }, 10);
+                }, 25);
 
             }
             catch (Exception e)
