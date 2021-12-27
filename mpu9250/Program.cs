@@ -42,9 +42,6 @@ namespace mpu9250
         // AK8963 registers
         public static byte AK8963_ADDR = 0x0C;
         public static byte AK8963_ST1 = 0x02;
-        public static byte HXH = 0x04;
-        public static byte HYH = 0x06;
-        public static byte HZH = 0x08;
         public static byte AK8963_ST2 = 0x09;
         public static byte AK8963_CNTL = 0x0A;
         public static double mag_sens = 4900.0; // # magnetometer sensitivity: 4800 uT
@@ -88,21 +85,27 @@ namespace mpu9250
 
             //mpu.getTemperature(data => { Console.WriteLine(data); }, 100);
 
+            int counter = 0;
 
-            mpu.getMotion6(data =>
+            try
             {
-                //lock (consoleLock)
+                mpu.getMotion6((accel, gyro, mag, temperature) =>
                 {
-                    Console.Write("Motion6:\t");
-                    foreach (var item in data)
-                    {
-                        Console.Write($"{item} ");
-                    }
-                    Console.WriteLine();
-                }
-            }, 50);
+                    Console.WriteLine($"{counter}: Motion6:\t" +
+                                      $"accel [g]: x:{accel.X:f2} y:{accel.Y:f2} z:{accel.Z:f2}\t" +
+                                      $"gyro [dps]: x:{gyro.X:f2} y:{gyro.Y:f2} z:{gyro.Z:f2}\t" +
+                                      $"mag [uT]: x:{mag.X:f2} y:{mag.Y:f2} z:{mag.Z:f2}\t" +
+                                      $"temp [c]: {temperature:f2}");
 
-            Console.ReadLine();
+                    counter++;
+                }, 0);
+
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+            }
+
 
             return;
 

@@ -4,6 +4,7 @@ using System.Device.I2c;
 using System.Diagnostics;
 using System.Collections;
 using System.Net.Sockets;
+using System.Numerics;
 using System.Text;
 using Iot.Device.Board;
 using Iot.Device.Magnetometer;
@@ -15,14 +16,18 @@ namespace mpu9250
     /// </summary> 
     class mpu9250
     {
-        public delegate void mpuCallbackData(double[] data);
+        public delegate void mpuCallbackData(Vector3 accel, Vector3 gyro, Vector3 mag, double temperature);
         public delegate void mpuCallbackTemp(Double data);
 
         private static byte BUS_ID = 1,
                             WIA = 0x00, // WIA: Device ID
                             MPU6050_ADDRESS = 0x68,
                             AK8963_ADDRESS = 0x0c,
+                            AK8963_ST2 = 0x09,
                             AK8963_CNTL = 0x0A,
+                            HXH = 0x04,
+                            HYH = 0x06,
+                            HZH = 0x08,
                             SELF_TEST_X_GYRO = 0x00,
                             SELF_TEST_Y_GYRO = 0x01,
                             SELF_TEST_Z_GYRO = 0x02,
@@ -131,6 +136,8 @@ namespace mpu9250
                             ACCEL_FS_8 = 2, GYRO_FS_1000 = 2,
                             ACCEL_FS_16 = 3, GYRO_FS_2000 = 3;
 
+        public static int MAG_SENS = 4900; // magnetometer sensitivity: 4800 uT
+
         private I2cDevice mpu;
         private I2cDevice ak8963;
         private Boolean deviceReady = false;
@@ -210,12 +217,14 @@ namespace mpu9250
                 ak8963.Write(new byte[] { AK8963_CNTL, 0x00 });
                 Task.Delay(100).Wait();
 
+                // set ContinuousMeasurement100Hz and Output16bit
                 var AK8963_bit_res = 0b0001; // 0b0001 = 16-bit
                 var AK8963_samp_rate = 0b0110; // 0b0010 = 8 Hz, 0b0110 = 100 Hz
                 var AK8963_mode = (AK8963_bit_res << 4) + AK8963_samp_rate; // bit conversion
                 Console.WriteLine($"AK8963_CNTL {AK8963_mode}");
-                ak8963.Write(new [] { AK8963_CNTL, (byte)AK8963_mode });
+                ak8963.Write(new[] { AK8963_CNTL, (byte)AK8963_mode });
                 Task.Delay(100).Wait();
+
 
 
 
@@ -230,6 +239,9 @@ namespace mpu9250
 
                 Console.WriteLine($"whoami MPU6050: 0x{whoami(mpu):X2}");
                 Console.WriteLine($"whoami AK8963: 0x{whoami(ak8963):X2}");
+                Task.Delay(100).Wait();
+
+
 
 
 
@@ -256,7 +268,7 @@ namespace mpu9250
                 //if (this.whoami(mpu) == WHOAMI_VALUE)
                 //{
                 //    Console.WriteLine("whoami");
-                    this.enableMagnetometer(ak8963);
+                this.enableMagnetometer(ak8963);
 
                     this.deviceReady = true;
                 //}
@@ -265,7 +277,7 @@ namespace mpu9250
             }
             catch (Exception err)
             {
-                Console.WriteLine($"general fault {err.Message}");
+                Console.WriteLine($"general fault: {err.Message}");
             }
         }
 
@@ -335,18 +347,51 @@ namespace mpu9250
                         //resetDeviceConfiguration(magnewotsit);
                         //Console.WriteLine("RESET MAGNEWOTSIT DEVICE");
 
-                        Console.WriteLine("INIT MAGNETOMETER");
-                        if (this.debug) Debug.WriteLine("INIT MAGNETOMETER");
-                        this.magnetometer = new Ak8963(mpu);
-                        this.magnetometer.MeasurementMode = MeasurementMode.ContinuousMeasurement100Hz;
+                        //Console.WriteLine("INIT MAGNETOMETER");
+                        //if (this.debug) Debug.WriteLine("INIT MAGNETOMETER");
+                        //this.magnetometer = new Ak8963(ak8963);
+
+                        //this.magnetometer.OutputBitMode = OutputBitMode.Output16bit;
+                        //this.magnetometer.MeasurementMode = MeasurementMode.ContinuousMeasurement100Hz;
+
+                        //Task.Delay(1000).Wait();
+
+                        //getMotion6(0);
+
+                        //while (true)
+                        //{
+                        //    Console.WriteLine("mag available?");
+
+                        //    while (true)
+                        //    {
+                        //        ak8963.WriteRead(new[] { AK8963_ST2 }, st2);
+
+                        //        Console.WriteLine($"AK8963_ST2: 0x{st2[0]:X2}");
+
+                        //        vector3 = this.magnetometer.ReadMagnetometerWithoutCorrection();
+
+                        //        var x = vector3.X;
+                        //        var y = vector3.Y;
+                        //        var z = vector3.Z;
+
+                        //        Console.WriteLine($"{DateTime.UtcNow}: {x} {y} {z}");
+
+                        //        //Console.WriteLine($"{this.magnetometer.HasDataToRead}");
+                        //        //Task.Delay(100).Wait();
+                        //    }
+
+                        //    Task.Delay(10).Wait();
+                        //}
                     }
-                }catch(Exception err)
+                }
+                catch(Exception err)
                 {
                     Console.WriteLine($"fek: {err.Message}");
                 }
             }
             return val;
         }
+        
 
         /**
          * Set clock source
@@ -698,47 +743,93 @@ namespace mpu9250
             this.getMotion6(callback, 1000);
         }
 
+        private float ReadAk8963Register(byte register)
+        {
+            var low = new byte[1];
+            var high = new byte[1];
+
+            // read magnetometer values
+            ak8963.WriteRead(new[] { (byte)(register - 1) }, low);
+            ak8963.WriteRead(new[] { register }, high);
+
+            // combine high and low for unsigned bit value
+            var value = (high[0] << 8) | low[0];
+
+            // convert to +- value
+            if (value > 32768)
+            {
+                value -= 65536;
+            }
+
+            return value;
+        }
+
         public void getMotion6(mpuCallbackData callback, int millisecondsDelay)
         {
-            if (this.deviceReady && this.mpu != null)
+            Task.Delay(1000).Wait();
+
+            Console.WriteLine("entering");
+
+            try
             {
-                try
+                //if (this.deviceReady && this.mpu != null)
                 {
-                    for (;;)
+                    Vector3 accel = default;
+                    Vector3 gyro = default;
+                    Vector3 mag = default;
+
+                    while (true)
                     {
                         double[] data = new double[9];
                         byte[] ReadBuf = new byte[14];
-                        this.mpu.WriteRead(new byte[] { ACCEL_XOUT_H }, ReadBuf);
+                        this.mpu.WriteRead(new [] { ACCEL_XOUT_H }, ReadBuf);
 
-                        data[0] = BitConverter.ToInt16(new byte[] { ReadBuf[1], ReadBuf[0] }, 0);
-                        data[1] = BitConverter.ToInt16(new byte[] { ReadBuf[3], ReadBuf[2] }, 0);
-                        data[2] = BitConverter.ToInt16(new byte[] { ReadBuf[5], ReadBuf[4] }, 0);
+                        // acceleration raw data
+                        var accel_X = BitConverter.ToInt16(new[] { ReadBuf[1], ReadBuf[0] }, 0);
+                        var accel_Y = BitConverter.ToInt16(new[] { ReadBuf[3], ReadBuf[2] }, 0);
+                        var accel_Z = BitConverter.ToInt16(new[] { ReadBuf[5], ReadBuf[4] }, 0);
+                        var accel_sens = 2; // [2.0, 4.0, 8.0, 16.0] // g (g = 9.81 m/s^2)
 
-                        data[3] = BitConverter.ToInt16(new byte[] { ReadBuf[7], ReadBuf[8] }, 0);
-                        data[4] = BitConverter.ToInt16(new byte[] { ReadBuf[9], ReadBuf[10] }, 0);
-                        data[5] = BitConverter.ToInt16(new byte[] { ReadBuf[13], ReadBuf[12] }, 0);
-                        
-                        if (this.magnetometer != null)
+                        // convert to acceleration into g
+                        accel.X = (float)(accel_X / Math.Pow(2.0, 15.0) * accel_sens);
+                        accel.Y = (float)(accel_Y / Math.Pow(2.0, 15.0) * accel_sens);
+                        accel.Z = (float)(accel_Z / Math.Pow(2.0, 15.0) * accel_sens);
+
+                        // gyroscope raw data
+                        var gyro_X = BitConverter.ToInt16(new[] { ReadBuf[7], ReadBuf[8] }, 0);
+                        var gyro_Y = BitConverter.ToInt16(new[] { ReadBuf[9], ReadBuf[10] }, 0);
+                        var gyro_Z = BitConverter.ToInt16(new[] { ReadBuf[13], ReadBuf[12] }, 0);
+                        var gyro_sens = 250; // [250.0, 500.0, 1000.0, 2000.0] # degrees/sec
+
+                        // convert to gyro into dps
+                        gyro.X = (float)(gyro_X / Math.Pow(2.0, 15.0) * gyro_sens);
+                        gyro.Y = (float)(gyro_Y / Math.Pow(2.0, 15.0) * gyro_sens);
+                        gyro.Z = (float)(gyro_Z / Math.Pow(2.0, 15.0) * gyro_sens);
+
+                        // magnetometer
+                        if (ak8963 != null)
                         {
-                            Console.WriteLine("mag read");
-                            var vector3 = this.magnetometer.ReadMagnetometer(false);
+                            // convert to acceleration in g and gyro dps
+                            mag.X = (float)(ReadAk8963Register(HXH) / Math.Pow(2.0, 15.0) * MAG_SENS);
+                            mag.Y = (float)(ReadAk8963Register(HYH) / Math.Pow(2.0, 15.0) * MAG_SENS);
+                            mag.Z = (float)(ReadAk8963Register(HZH) / Math.Pow(2.0, 15.0) * MAG_SENS);
 
-                            Console.WriteLine("mag complete");
-                            // todo check this
-                            data[6] = vector3.X; //tmpData[0];
-                            data[7] = vector3.Y; // tmpData[1];
-                            data[8] = vector3.Z; //tmpData[2];
+                            var st2 = new byte[1];
+                            ak8963.WriteRead(new[] { AK8963_ST2 }, st2);
+
+                            //Console.WriteLine($"x: {x} y: {y} z:{z} AK8963_ST2:0x{st2[0]:X2}");
                         }
 
-                        Console.WriteLine("callback");
-                        callback(data);
+
+                        callback(accel, gyro, mag, getTemperature());
+
                         Task.Delay(millisecondsDelay).Wait();
                     }
                 }
-                catch (Exception err)
-                {
-                    Debug.WriteLine(err.Message);
-                }
+            }
+            catch (Exception err)
+            {
+                Console.WriteLine(err.Message);
             }
         }
 
@@ -787,11 +878,12 @@ namespace mpu9250
                         byte[] ReadBuf = new byte[6];
                         this.mpu.WriteRead(new byte[] { ACCEL_XOUT_H }, ReadBuf);
 
-                        data[0] = BitConverter.ToInt16(new byte[] { ReadBuf[1], ReadBuf[0] }, 0);
-                        data[1] = BitConverter.ToInt16(new byte[] { ReadBuf[3], ReadBuf[2] }, 0);
-                        data[2] = BitConverter.ToInt16(new byte[] { ReadBuf[5], ReadBuf[4] }, 0);
+                        Vector3 accel;
+                        accel.X = BitConverter.ToInt16(new byte[] { ReadBuf[1], ReadBuf[0] }, 0);
+                        accel.Y = BitConverter.ToInt16(new byte[] { ReadBuf[3], ReadBuf[2] }, 0);
+                        accel.Z = BitConverter.ToInt16(new byte[] { ReadBuf[5], ReadBuf[4] }, 0);
 
-                        callback(data);
+                        callback(accel, default, default, default);
                         Task.Delay(millisecondsDelay).Wait();
                     }
                 }
@@ -847,11 +939,12 @@ namespace mpu9250
                         byte[] ReadBuf = new byte[6];
                         this.mpu.WriteRead(new byte[] { GYRO_XOUT_H }, ReadBuf);
 
-                        data[0] = BitConverter.ToInt16(new byte[] { ReadBuf[1], ReadBuf[0] }, 0);
-                        data[1] = BitConverter.ToInt16(new byte[] { ReadBuf[3], ReadBuf[2] }, 0);
-                        data[2] = BitConverter.ToInt16(new byte[] { ReadBuf[5], ReadBuf[4] }, 0);
+                        Vector3 gyro;
+                        gyro.X = BitConverter.ToInt16(new byte[] { ReadBuf[1], ReadBuf[0] }, 0);
+                        gyro.Y = BitConverter.ToInt16(new byte[] { ReadBuf[3], ReadBuf[2] }, 0);
+                        gyro.Z = BitConverter.ToInt16(new byte[] { ReadBuf[5], ReadBuf[4] }, 0);
 
-                        callback(data);
+                        callback(default, gyro, default, default);
                         Task.Delay(millisecondsDelay).Wait();
                     }
                 }
