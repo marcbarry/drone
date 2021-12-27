@@ -743,12 +743,38 @@ namespace mpu9250
             this.getMotion6(callback, 1000);
         }
 
+        /// <summary>
+        /// For accelerometer and gyroscope
+        /// </summary>
+        /// <param name="register"></param>
+        /// <returns></returns>
+        private float ReadMpu6050Register(byte register)
+        {
+            var low = new byte[1];
+            var high = new byte[1];
+
+            mpu.WriteRead(new[] { register }, high);
+            mpu.WriteRead(new[] { (byte)(register + 1) }, low);
+
+            // combine high and low for unsigned bit value
+            var value = (high[0] << 8) | low[0];
+
+            // convert to +- value
+            if (value > 32768) value -= 65536;
+
+            return value;
+        }
+
+        /// <summary>
+        /// For magnetometer
+        /// </summary>
+        /// <param name="register"></param>
+        /// <returns></returns>
         private float ReadAk8963Register(byte register)
         {
             var low = new byte[1];
             var high = new byte[1];
 
-            // read magnetometer values
             ak8963.WriteRead(new[] { (byte)(register - 1) }, low);
             ak8963.WriteRead(new[] { register }, high);
 
@@ -756,10 +782,7 @@ namespace mpu9250
             var value = (high[0] << 8) | low[0];
 
             // convert to +- value
-            if (value > 32768)
-            {
-                value -= 65536;
-            }
+            if (value > 32768) value -= 65536;
 
             return value;
         }
@@ -770,41 +793,28 @@ namespace mpu9250
 
             Console.WriteLine("entering");
 
-            try
+            //if (this.deviceReady && this.mpu != null)
             {
-                //if (this.deviceReady && this.mpu != null)
+                Vector3 accel = default;
+                Vector3 gyro = default;
+                Vector3 mag = default;
+
+                while (true)
                 {
-                    Vector3 accel = default;
-                    Vector3 gyro = default;
-                    Vector3 mag = default;
-
-                    while (true)
+                    try
                     {
-                        double[] data = new double[9];
-                        byte[] ReadBuf = new byte[14];
-                        this.mpu.WriteRead(new [] { ACCEL_XOUT_H }, ReadBuf);
-
-                        // acceleration raw data
-                        var accel_X = BitConverter.ToInt16(new[] { ReadBuf[1], ReadBuf[0] }, 0);
-                        var accel_Y = BitConverter.ToInt16(new[] { ReadBuf[3], ReadBuf[2] }, 0);
-                        var accel_Z = BitConverter.ToInt16(new[] { ReadBuf[5], ReadBuf[4] }, 0);
                         var accel_sens = 2; // [2.0, 4.0, 8.0, 16.0] // g (g = 9.81 m/s^2)
-
-                        // convert to acceleration into g
-                        accel.X = (float)(accel_X / Math.Pow(2.0, 15.0) * accel_sens);
-                        accel.Y = (float)(accel_Y / Math.Pow(2.0, 15.0) * accel_sens);
-                        accel.Z = (float)(accel_Z / Math.Pow(2.0, 15.0) * accel_sens);
-
-                        // gyroscope raw data
-                        var gyro_X = BitConverter.ToInt16(new[] { ReadBuf[7], ReadBuf[8] }, 0);
-                        var gyro_Y = BitConverter.ToInt16(new[] { ReadBuf[9], ReadBuf[10] }, 0);
-                        var gyro_Z = BitConverter.ToInt16(new[] { ReadBuf[13], ReadBuf[12] }, 0);
                         var gyro_sens = 250; // [250.0, 500.0, 1000.0, 2000.0] # degrees/sec
 
+                        // convert to acceleration into g
+                        accel.X = (float)(ReadMpu6050Register(ACCEL_XOUT_H) / Math.Pow(2.0, 15.0) * accel_sens);
+                        accel.Y = (float)(ReadMpu6050Register(ACCEL_YOUT_H) / Math.Pow(2.0, 15.0) * accel_sens);
+                        accel.Z = (float)(ReadMpu6050Register(ACCEL_ZOUT_H) / Math.Pow(2.0, 15.0) * accel_sens);
+
                         // convert to gyro into dps
-                        gyro.X = (float)(gyro_X / Math.Pow(2.0, 15.0) * gyro_sens);
-                        gyro.Y = (float)(gyro_Y / Math.Pow(2.0, 15.0) * gyro_sens);
-                        gyro.Z = (float)(gyro_Z / Math.Pow(2.0, 15.0) * gyro_sens);
+                        gyro.X = (float)(ReadMpu6050Register(GYRO_XOUT_H) / Math.Pow(2.0, 15.0) * gyro_sens);
+                        gyro.Y = (float)(ReadMpu6050Register(GYRO_YOUT_H) / Math.Pow(2.0, 15.0) * gyro_sens);
+                        gyro.Z = (float)(ReadMpu6050Register(GYRO_ZOUT_H) / Math.Pow(2.0, 15.0) * gyro_sens);
 
                         // magnetometer
                         if (ak8963 != null)
@@ -818,18 +828,18 @@ namespace mpu9250
                             ak8963.WriteRead(new[] { AK8963_ST2 }, st2);
 
                             //Console.WriteLine($"x: {x} y: {y} z:{z} AK8963_ST2:0x{st2[0]:X2}");
+
+                            callback(accel, gyro, mag, getTemperature());
                         }
-
-
-                        callback(accel, gyro, mag, getTemperature());
-
-                        Task.Delay(millisecondsDelay).Wait();
                     }
+                    catch (Exception err)
+                    {
+                        Task.Delay(10).Wait();
+                        //Console.WriteLine(err.Message);
+                    }
+
+                    Task.Delay(millisecondsDelay).Wait();
                 }
-            }
-            catch (Exception err)
-            {
-                Console.WriteLine(err.Message);
             }
         }
 
