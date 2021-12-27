@@ -55,10 +55,10 @@ namespace mpu9250
 
             var mpu = new mpu9250();
 
-            
-            var consoleLock = new object();
 
-            Console.WriteLine(mpu.isReady() ? "Device Ready": "Failure");
+            //var consoleLock = new object();
+
+            //Console.WriteLine(mpu.isReady() ? "Device Ready": "Failure");
 
             //mpu.getGyros(data =>
             //{
@@ -91,7 +91,7 @@ namespace mpu9250
 
             mpu.getMotion6(data =>
             {
-                lock (consoleLock)
+                //lock (consoleLock)
                 {
                     Console.Write("Motion6:\t");
                     foreach (var item in data)
@@ -100,7 +100,7 @@ namespace mpu9250
                     }
                     Console.WriteLine();
                 }
-            }, 100);
+            }, 50);
 
             Console.ReadLine();
 
