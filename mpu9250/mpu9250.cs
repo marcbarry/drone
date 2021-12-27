@@ -4,6 +4,7 @@ using System.Device.I2c;
 using System.Diagnostics;
 using System.Collections;
 using System.Net.Sockets;
+using System.Text;
 using Iot.Device.Board;
 using Iot.Device.Magnetometer;
 
@@ -18,8 +19,10 @@ namespace mpu9250
         public delegate void mpuCallbackTemp(Double data);
 
         private static byte BUS_ID = 1,
+                            WIA = 0x00, // WIA: Device ID
                             MPU6050_ADDRESS = 0x68,
                             AK8963_ADDRESS = 0x0c,
+                            AK8963_CNTL = 0x0A,
                             SELF_TEST_X_GYRO = 0x00,
                             SELF_TEST_Y_GYRO = 0x01,
                             SELF_TEST_Z_GYRO = 0x02,
@@ -129,6 +132,7 @@ namespace mpu9250
                             ACCEL_FS_16 = 3, GYRO_FS_2000 = 3;
 
         private I2cDevice mpu;
+        private I2cDevice ak8963;
         private Boolean deviceReady = false;
         private bool debug = false;
         private Ak8963 magnetometer = null;
@@ -146,58 +150,122 @@ namespace mpu9250
         {
             try
             {
-                var i2CBus = I2cBus.Create(BUS_ID);
+                //var i2CBus = I2cBus.Create(BUS_ID);
 
-                var connectedDevices = i2CBus.PerformBusScan();
+                //var connectedDevices = i2CBus.PerformBusScan();
 
-                Console.WriteLine($"Found {connectedDevices.Count} device{(connectedDevices.Count != 1 ? "s" : "")} on bus {BUS_ID}");
+                //Console.WriteLine($"Found {connectedDevices.Count} device{(connectedDevices.Count != 1 ? "s" : "")} on bus {BUS_ID}");
 
-                if (connectedDevices.Contains(MPU6050_ADDRESS) == false)
-                {
-                    Console.WriteLine($"MPU6050 Inertial Measurement Unit (IMU) not detected on bus {BUS_ID}");
-                    return;
-                }
+                //if (connectedDevices.Contains(MPU6050_ADDRESS) == false)
+                //{
+                //    Console.WriteLine($"MPU6050 Inertial Measurement Unit (IMU) not detected on bus {BUS_ID}");
+                //    return;
+                //}
 
-                if (connectedDevices.Contains(AK8963_ADDRESS) == false)
-                {
-                    Console.WriteLine($"AK8963 magnetometer not detected on bus {BUS_ID}");
-                    return;
-                }
+                //if (connectedDevices.Contains(AK8963_ADDRESS) == false)
+                //{
+                //    Console.WriteLine($"AK8963 magnetometer not detected on bus {BUS_ID}");
+                //    return;
+                //}
 
-                mpu = I2cDevice.Create(new I2cConnectionSettings(1, MPU6050_ADDRESS));
+                //Console.WriteLine($"Found MPU6050 Inertial Measurement Unit (IMU) on bus {BUS_ID} at address 0x{MPU6050_ADDRESS:X2}");
+                //Console.WriteLine($"Found AK8963 Magnetometer on bus {BUS_ID} at address 0x{AK8963_ADDRESS:X2}");
 
-                Console.WriteLine($"Found MPU6050 Inertial Measurement Unit (IMU) on bus {BUS_ID}");
 
-                this.resetDeviceConfiguration();
-                if (this.debug) Console.WriteLine("RESET DEVICE");
-                this.setI2C_MST_CLK(i2cspeed);
-                if (this.debug) Console.WriteLine("SET SPEED I2C");
-                this.setGyrosSensibility(gyro_fs);
-                if (this.debug) Console.WriteLine("SET GYROS FS");
-                this.setAccelSensibility(accel_fs);
-                if (this.debug) Console.WriteLine("SET ACCEL FS");
-                this.setClockSource(clocksource);
-                if (this.debug) Console.WriteLine("SET CLOCK SOURCE");
-                this.setSleep(false);
-                if (this.debug) Console.WriteLine("SET SLEEP MODE TO FALSE");
+                //
+                //
+                // 
+                
+                
+                mpu = I2cDevice.Create(new I2cConnectionSettings(BUS_ID, MPU6050_ADDRESS));
+                ak8963 = I2cDevice.Create(new I2cConnectionSettings(BUS_ID, AK8963_ADDRESS));
 
-                Console.WriteLine($"whoami mpu: {whoami(mpu)}");
-                if (this.whoami(mpu) == WHOAMI_VALUE)
-                {
-                    var magnewotsit = I2cDevice.Create(new I2cConnectionSettings(1, AK8963_ADDRESS));
+                // alter sample rate (stability)
+                Console.WriteLine("SMPLRT_DIV");
+                mpu.Write(new byte[] { SMPLRT_DIV, 0x00 });
+                Task.Delay(100).Wait();
 
-                    Console.WriteLine($"whoami AK8963: {whoami(magnewotsit)}");
-                    Console.WriteLine("whoami");
-                    this.enableMagnetometer(mpu);
+                // reset all sensors
+                Console.WriteLine("PWR_MGMT_1");
+                mpu.Write(new byte[] { PWR_MGMT_1, 0x00 });
+                Task.Delay(100).Wait();
+
+                // power management and crystal settings
+                Console.WriteLine("PWR_MGMT_1");
+                mpu.Write(new byte[] { PWR_MGMT_1, 0x01 });
+                Task.Delay(100).Wait();
+
+                // write to Configuration register
+                Console.WriteLine("CONFIG");
+                mpu.Write(new byte[] { CONFIG, 0x00 });
+                Task.Delay(300).Wait();
+
+                // interrupt register (related to overflow of data [FIFO])
+                Console.WriteLine("INT_ENABLE");
+                mpu.Write(new byte[] { INT_ENABLE, 0x01 });
+                Task.Delay(100).Wait();
+
+                // init AK8963
+                Console.WriteLine("AK8963_CNTL");
+                ak8963.Write(new byte[] { AK8963_CNTL, 0x00 });
+                Task.Delay(100).Wait();
+
+                var AK8963_bit_res = 0b0001; // 0b0001 = 16-bit
+                var AK8963_samp_rate = 0b0110; // 0b0010 = 8 Hz, 0b0110 = 100 Hz
+                var AK8963_mode = (AK8963_bit_res << 4) + AK8963_samp_rate; // bit conversion
+                Console.WriteLine($"AK8963_CNTL {AK8963_mode}");
+                ak8963.Write(new [] { AK8963_CNTL, (byte)AK8963_mode });
+                Task.Delay(100).Wait();
+
+
+
+                var mpuWIA = new byte[1];
+                var ak8963WIA = new byte[1];
+
+                mpu.WriteRead(new[] { WIA }, mpuWIA);
+                ak8963.WriteRead(new[] { WIA }, ak8963WIA);
+
+                Console.WriteLine($"WIA MPU6050: 0x{mpuWIA[0]:X2}");
+                Console.WriteLine($"WIA AK8963: 0x{ak8963WIA[0]:X2}");
+
+                Console.WriteLine($"whoami MPU6050: 0x{whoami(mpu):X2}");
+                Console.WriteLine($"whoami AK8963: 0x{whoami(ak8963):X2}");
+
+
+
+
+
+                //this.resetDeviceConfiguration(mpu);
+                //if (this.debug) Console.WriteLine("RESET DEVICE");
+
+                //this.setI2C_MST_CLK(i2cspeed);
+                //if (this.debug) Console.WriteLine("SET SPEED I2C");
+
+                //this.setGyrosSensibility(gyro_fs);
+                //if (this.debug) Console.WriteLine("SET GYROS FS");
+
+                //this.setAccelSensibility(accel_fs);
+                //if (this.debug) Console.WriteLine("SET ACCEL FS");
+
+                //this.setClockSource(clocksource);
+                //if (this.debug) Console.WriteLine("SET CLOCK SOURCE");
+
+                //this.setSleep(false);
+                //if (this.debug) Console.WriteLine("SET SLEEP MODE TO FALSE");
+
+                //if (this.whoami(mpu) == WHOAMI_VALUE)
+                //{
+                //    Console.WriteLine("whoami");
+                    this.enableMagnetometer(ak8963);
 
                     this.deviceReady = true;
-                }
+                //}
 
                 Console.WriteLine("OK");
             }
             catch (Exception err)
             {
-                Debug.WriteLine(err.Message);
+                Console.WriteLine($"general fault {err.Message}");
             }
         }
 
@@ -259,19 +327,22 @@ namespace mpu9250
             {
                 try
                 {
-                    this.setI2C_MST_EN(false);
-                    this.setBYPASS(true);
+                    //this.setI2C_MST_EN(false);
+                    //this.setBYPASS(true);
                     Console.WriteLine("set bypass");
-                    if (this.ByPassEnabled())
+                    //if (this.ByPassEnabled())
                     {
+                        //resetDeviceConfiguration(magnewotsit);
+                        //Console.WriteLine("RESET MAGNEWOTSIT DEVICE");
+
                         Console.WriteLine("INIT MAGNETOMETER");
                         if (this.debug) Debug.WriteLine("INIT MAGNETOMETER");
                         this.magnetometer = new Ak8963(mpu);
-
+                        this.magnetometer.MeasurementMode = MeasurementMode.ContinuousMeasurement100Hz;
                     }
                 }catch(Exception err)
                 {
-                    Console.WriteLine(err.Message);
+                    Console.WriteLine($"fek: {err.Message}");
                 }
             }
             return val;
@@ -314,16 +385,16 @@ namespace mpu9250
         /**
          * Reset device configuration
          **/
-        private void resetDeviceConfiguration()
+        private void resetDeviceConfiguration(I2cDevice device)
         {
-            if (this.mpu != null)
+            if (device != null)
             {
                 byte[] ReadBuf = new byte[1];
-                this.mpu.WriteRead(new byte[] { PWR_MGMT_1 }, ReadBuf);
+                device.WriteRead(new byte[] { PWR_MGMT_1 }, ReadBuf);
                 var bits = new BitArray(ReadBuf);
                 bits.Set(7, true);
                 var byteval = ConvertToByte(bits);
-                this.mpu.Write(new byte[] { PWR_MGMT_1, byteval });
+                device.Write(new byte[] { PWR_MGMT_1, byteval });
                 Task.Delay(10).Wait();
             }
         }
@@ -419,7 +490,7 @@ namespace mpu9250
         }
 
         /**
-         * set I2C MST EN
+         * set I2C MASTER MODE ENABLED
          **/
         public void setI2C_MST_EN(bool value)
         {
@@ -521,7 +592,7 @@ namespace mpu9250
                 }
                 catch (Exception err)
                 {
-                    Debug.WriteLine(err.Message);
+                    Console.WriteLine($"whoami error: {err.Message}");
                 }
             }
 
@@ -649,16 +720,17 @@ namespace mpu9250
                         
                         if (this.magnetometer != null)
                         {
-                            Console.WriteLine("mag");
-                            // var tmpData = this.magnetometer.getMagnetometer();
-                            var vector3 = magnetometer.ReadMagnetometer();
-                            
+                            Console.WriteLine("mag read");
+                            var vector3 = this.magnetometer.ReadMagnetometer(false);
+
+                            Console.WriteLine("mag complete");
                             // todo check this
                             data[6] = vector3.X; //tmpData[0];
                             data[7] = vector3.Y; // tmpData[1];
                             data[8] = vector3.Z; //tmpData[2];
                         }
 
+                        Console.WriteLine("callback");
                         callback(data);
                         Task.Delay(millisecondsDelay).Wait();
                     }
