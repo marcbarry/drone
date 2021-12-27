@@ -14,6 +14,7 @@ namespace mpu9250
 {
     /// <summary>
     /// Source https://raw.githubusercontent.com/miniben-90/MPU9250-IoT/master/mpu9250.cs
+    /// https://download.mikroe.com/documents/datasheets/ak8963c-datasheet.pdf
     /// </summary> 
     class mpu9250
     {
@@ -976,16 +977,19 @@ namespace mpu9250
             return (Math.Atan2(y, z) + Math.PI) * (180 / Math.PI) - 180;
         }
 
-        public double getPitch(float x, float z)
+        public double getPitch(float acc_x, float acc_z)
         {
-            return (Math.Atan2(x, z) + Math.PI) * (180 / Math.PI) - 180;
+            return (Math.Atan2(acc_x, acc_z) + Math.PI) * (180 / Math.PI) - 180;
         }
 
-        public double getRoll(float y, float z)
+        public double getRoll(float acc_y, float acc_z)
         {
-            return (Math.Atan2(y, z) + Math.PI) * (180 / Math.PI) - 180;
+            return (Math.Atan2(acc_y, acc_z) + Math.PI) * (180 / Math.PI) - 180;
         }
 
-        /** end of class **/
+        public double getYaw(float mag_y, float mag_x)
+        {
+            return 180 * Math.Atan2(mag_y, mag_x) / Math.PI;
+        }
     }
 }
