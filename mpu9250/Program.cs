@@ -1,4 +1,7 @@
 ﻿using System;
+using InfluxDB.Client;
+using InfluxDB.Client.Api.Domain;
+using InfluxDB.Client.Writes;
 
 namespace mpu9250
 {
@@ -42,14 +45,31 @@ namespace mpu9250
         public static byte AK8963_CNTL = 0x0A;
         public static double mag_sens = 4900.0; // # magnetometer sensitivity: 4800 uT
 
+        public static InfluxDBClient client;
+
 
         public static void Main(string[] args)
         {
+            // You can generate an API token from the "API Tokens Tab" in the UI
+            const string token = "";
+            const string bucket = "";
+            const string org = "";
+
+            //const string data = "mem,host=host1 used_percent=23.43234543";
+
+            //using (var writeApi = client.GetWriteApi())
+            //{
+            //    writeApi.WriteRecord(bucket, org, WritePrecision.Ns, data);
+            //}
+
+
+            client = InfluxDBClientFactory.Create("http://localhost:8086", token); // home nas
+
             KalmanTest();
 
             var mpu = new mpu9250();
 
-            int counter = 0;
+            var counter = 0;
 
             try
             {
@@ -65,17 +85,70 @@ namespace mpu9250
                     var kalmanGyroY = gyroYFilter.Smooth(gyro.Y);
 
                     // Sample every 25th of a second. Update four times a second
-                    //if (counter % 10 == 0)
+                    if (counter % 10 == 0)
                     {
-                        Console.WriteLine($"accel [g]: x:{accel.X:f2} y:{accel.Y:f2} z:{accel.Z:f2}\t" +
-                                          $"gyro [dps]: x:{gyro.X:f2} y:{kalmanGyroY:f2} z:{gyro.Z:f2}\t" +
-                                          $"mag [uT]: x:{mag.X:f2} y:{mag.Y:f2} z:{mag.Z:f2}\t" +
-                                          $"roll: {mpu.getRoll(gyro.Y, gyro.Z):f2} " +
-                                          $"pitch: {mpu.getPitch(gyro.X, gyro.Z):f2} " +
-                                          $"yaw: {mpu.getYaw(mag.Y, mag.X):f2} " +
-                                          $"temp [c]: {temperature:f2}");
+                        try
+                        {
+                            Console.WriteLine($"accel [g]: x:{accel.X:f2} y:{accel.Y:f2} z:{accel.Z:f2}\t" +
+                                              $"gyro [dps]: x:{gyro.X:f2} y:{kalmanGyroY:f2} z:{gyro.Z:f2}\t" +
+                                              $"mag [uT]: x:{mag.X:f2} y:{mag.Y:f2} z:{mag.Z:f2}\t" +
+                                              $"roll: {mpu.getRoll(gyro.Y, gyro.Z):f2} " +
+                                              $"pitch: {mpu.getPitch(gyro.X, gyro.Z):f2} " +
+                                              $"yaw: {mpu.getYaw(mag.Y, mag.X):f2} " +
+                                              $"temp [c]: {temperature:f2}");
 
-                        counter = 0;
+                            var accelerationPoints = PointData
+                                .Measurement("acceleration")
+                                .Tag("host", "rpi4b")
+                                .Field("X", accel.X)
+                                .Field("Y", accel.Y)
+                                .Field("Z", accel.Z)
+                                .Timestamp(DateTime.UtcNow, WritePrecision.Ns);
+
+                            var gyroscopePoints = PointData
+                                .Measurement("gyroscope")
+                                .Tag("host", "rpi4b")
+                                .Field("X", gyro.X)
+                                .Field("Y", gyro.Y)
+                                .Field("Z", gyro.Z)
+                                .Timestamp(DateTime.UtcNow, WritePrecision.Ns);
+
+                            var magnetometerPoints = PointData
+                                .Measurement("magnetometer")
+                                .Tag("host", "rpi4b")
+                                .Field("X", mag.X)
+                                .Field("Y", mag.Y)
+                                .Field("Z", mag.Z)
+                                .Timestamp(DateTime.UtcNow, WritePrecision.Ns);
+
+                            var orientationPoints = PointData
+                                .Measurement("orientation")
+                                .Tag("host", "rpi4b")
+                                .Field("Roll", mpu.getRoll(gyro.Y, gyro.Z))
+                                .Field("Pitch", mpu.getPitch(gyro.X, gyro.Z))
+                                .Field("Yaw", mpu.getYaw(mag.Y, mag.X))
+                                .Timestamp(DateTime.UtcNow, WritePrecision.Ns);
+
+                            var temperaturePoints = PointData
+                                .Measurement("temperature")
+                                .Tag("host", "rpi4b")
+                                .Field("Celsius", temperature)
+                                .Timestamp(DateTime.UtcNow, WritePrecision.Ns);
+
+                            using var writeApi = client.GetWriteApi();
+
+                            writeApi.WritePoint(bucket, org, accelerationPoints);
+                            writeApi.WritePoint(bucket, org, gyroscopePoints);
+                            writeApi.WritePoint(bucket, org, magnetometerPoints);
+                            writeApi.WritePoint(bucket, org, temperaturePoints);
+                            writeApi.WritePoint(bucket, org, orientationPoints);
+
+                            counter = 0;
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine(e);
+                        }
                     }
 
                     counter++;
