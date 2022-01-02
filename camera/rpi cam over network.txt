@@ -1,0 +1,20 @@
+https://raspberrypi.stackexchange.com/questions/27082/how-to-stream-raspivid-to-linux-and-osx-using-gstreamer-vlc-or-netcat
+
+
+Video Source
+============
+raspivid -o - -w 920 -h 540 -t 0 -fps 30 -vf -hf | nc -k -l 2222
+	outputs H264-ES (Elementary Stream)
+		Split up into NAL units, separated by startcode prefix
+		There is no length information in it because it is a bitstream. You have to look for startcode pattern (0x000001 OR 0x00000001) in the bitstream for the next NAL unit.
+
+Video Receiver
+==============
+		(https://oss.netfarm.it/mplayer/)
+.mplayer	\mplayer.exe -fps 400 -demuxer h264es ffmpeg://tcp://raspberry-pi.enclave:2222
+vlc		tcp/h264://raspberry-pi.enclave:2222
+
+https://github.com/microsoft/FFmpegInterop
+https://github.com/rosenbjerg/FFMpegCore
+
+Elementary Stream
