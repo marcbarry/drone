@@ -16,7 +16,7 @@ AT#USBCFG=4					; start to configure the modem for ECM mode, may reboot
 AT+CGDCONT=1,"IP","giffgaff.com"		; configure APN
 AT#REBOOT					
 AT#ECM=1,0					; start the internet connection
-						; on reboots or network loss, re-run
+						; on reboots or network/signal loss, re-run
 ```
 
 ```
