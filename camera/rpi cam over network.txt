@@ -11,7 +11,7 @@ raspivid -o - -w 920 -h 540 -t 0 -fps 30 -vf -hf | nc -k -l 2222
 Video Receiver
 ==============
 		(https://oss.netfarm.it/mplayer/)
-.mplayer	\mplayer.exe -fps 400 -demuxer h264es ffmpeg://tcp://raspberry-pi.enclave:2222
+.mplayer	.\mplayer.exe -fps 400 -demuxer h264es ffmpeg://tcp://drone.enclave:2222
 vlc		tcp/h264://raspberry-pi.enclave:2222
 
 https://github.com/microsoft/FFmpegInterop
