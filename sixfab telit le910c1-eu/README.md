@@ -29,8 +29,8 @@ $ ping -I wwan0 8.8.8.8
 - https://docs.sixfab.com/docs/raspberry-pi-3g-4g-lte-base-hat-troubleshooting
 
 ```
-AT+CGREG?					; registration status of the device
 AT+CPIN?					; device can recognize the SIM
+AT+CGREG?					; registration status of the device
 AT+CSQ						; signal strength of the device
 ```
 
