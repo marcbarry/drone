@@ -1,0 +1,11 @@
+1 x 	DJI F450 Frame
+1 x	Raspberry Pi 4G/LTE Cellular Modem Kit - Telit LE910C1-EU (EMEA)
+1 x	MakerHawk MPU9250 9DOF Module 9 Axis Gyroscope Accelerometer Magnetic Field Sensor
+1 x	EVENTRONIC 1120 Pcs Assortment Electric Insulation Heat Shrink Tube Kit with Box
+1 x	Arducam 8MP Synchronized Stereo Camera Bundle Kit for Raspberry Pi (SKU B0195S8MP)
+
+
+https://www.youtube.com/watch?v=kB9YyG2V-nA&ab_channel=TheDroneDojo
+https://shop.pimoroni.com/products/pico-hat-hacker
+https://www.buildyourowndrone.co.uk/dji-f450-flame-wheel-quadcopter-frame
+https://elinux.org/RPi_HardwareHistory
