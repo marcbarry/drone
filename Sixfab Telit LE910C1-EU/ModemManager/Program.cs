@@ -21,7 +21,7 @@ _serialPort.BaudRate = 115200;
 //_serialPort.StopBits = StopBits.One;
 //_serialPort.DataBits = 8;
 //_serialPort.Handshake = Handshake.None;
-//_serialPort.DataReceived += port_DataReceived;
+_serialPort.DataReceived += port_DataReceived;
 
 Console.WriteLine($"PortName: {_serialPort.PortName}");
 Console.WriteLine($"BaudRate: {_serialPort.BaudRate}");
@@ -33,20 +33,20 @@ Console.WriteLine($"Handshake: {_serialPort.Handshake}");
 _serialPort.ReadTimeout = 2000;
 _serialPort.Open();
 
-bool _continue = true;
+//bool _continue = true;
 
-Task.Run(() =>
-{
-    while (_continue)
-    {
-        try
-        {
-            var message = _serialPort.ReadLine();
-            Console.WriteLine($"output: {message}");
-        }
-        catch (TimeoutException) { }
-    }
-});
+//Task.Run(() =>
+//{
+//    while (_continue)
+//    {
+//        try
+//        {
+//            var message = _serialPort.ReadLine();
+//            Console.WriteLine($"output: {message}");
+//        }
+//        catch (TimeoutException) { }
+//    }
+//});
 
 //while (_continue)
 //{
@@ -57,17 +57,16 @@ Task.Run(() =>
 //    }
 //    else
 //    {
-//        _serialPort.WriteLine(message);
+//        _serialPort.Write($"\r{message}\r");
 //    }
 //}
 
-//void port_DataReceived(object sender, SerialDataReceivedEventArgs e)
-//{
-//    // Show all the incoming data in the port's buffer
-//    Console.WriteLine($"{_serialPort.ReadExisting()}");
-//}
+void port_DataReceived(object sender, SerialDataReceivedEventArgs e)
+{
+    Console.WriteLine($"{_serialPort.ReadExisting()}");
+}
 
-Console.WriteLine("Ready?");
-Console.ReadLine();
-_serialPort.WriteLine("AT");
-Console.ReadLine();
+_serialPort.Write("\rAT\r");
+_serialPort.Write("\rAT#ECM=1,0\r");
+
+Task.Delay(2000).Wait();
