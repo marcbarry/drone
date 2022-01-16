@@ -69,4 +69,4 @@ void port_DataReceived(object sender, SerialDataReceivedEventArgs e)
 _serialPort.Write("\rAT\r");
 _serialPort.Write("\rAT#ECM=1,0\r");
 
-Task.Delay(2000).Wait();
+Task.Delay(1000).Wait();
